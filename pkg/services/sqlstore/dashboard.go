@@ -184,16 +184,18 @@ func GetDashboard(query *m.GetDashboardQuery) error {
 }
 
 type DashboardSearchProjection struct {
-	Id          int64
-	Uid         string
-	Title       string
-	Slug        string
-	Term        string
-	IsFolder    bool
-	FolderId    int64
-	FolderUid   string
-	FolderSlug  string
-	FolderTitle string
+	Id             int64
+	Uid            string
+	Title          string
+	Slug           string
+	Term           string
+	IsFolder       bool
+	FolderId       int64
+	FolderUid      string
+	FolderSlug     string
+	FolderTitle    string
+	Viewable       bool
+	FolderViewable bool
 }
 
 func findDashboards(query *search.FindPersistedDashboardsQuery) ([]DashboardSearchProjection, error) {
@@ -234,7 +236,7 @@ func SearchDashboards(query *search.FindPersistedDashboardsQuery) error {
 		return err
 	}
 
-	makeQueryResult(query, res)
+	makeQueryResult(query, res, query.SignedInUser.IsGrafanaAdmin)
 
 	return nil
 }
@@ -250,7 +252,7 @@ func getHitType(item DashboardSearchProjection) search.HitType {
 	return hitType
 }
 
-func makeQueryResult(query *search.FindPersistedDashboardsQuery, res []DashboardSearchProjection) {
+func makeQueryResult(query *search.FindPersistedDashboardsQuery, res []DashboardSearchProjection, admin bool) {
 	query.Result = make([]*search.Hit, 0)
 	hits := make(map[int64]*search.Hit)
 
@@ -262,7 +264,7 @@ func makeQueryResult(query *search.FindPersistedDashboardsQuery, res []Dashboard
 				Uid:         item.Uid,
 				Title:       item.Title,
 				Uri:         "db/" + item.Slug,
-				Url:         m.GetDashboardFolderUrl(item.IsFolder, item.Uid, item.Slug),
+				Url:         m.GetDashboardFolderUrlForPermission(item.IsFolder, item.Uid, item.Slug, item.Viewable, admin),
 				Type:        getHitType(item),
 				FolderId:    item.FolderId,
 				FolderUid:   item.FolderUid,
@@ -270,7 +272,7 @@ func makeQueryResult(query *search.FindPersistedDashboardsQuery, res []Dashboard
 				Tags:        []string{},
 			}
 
-			if item.FolderId > 0 {
+			if item.FolderId > 0 && item.FolderViewable {
 				hit.FolderUrl = m.GetFolderUrl(item.FolderUid, item.FolderSlug)
 			}
 
@@ -638,8 +640,14 @@ func HasEditPermissionInFolders(query *m.HasEditPermissionInFoldersQuery) error 
 	}
 
 	builder := &SqlBuilder{}
-	builder.Write("SELECT COUNT(dashboard.id) AS count FROM dashboard WHERE dashboard.org_id = ? AND dashboard.is_folder = ?", query.SignedInUser.OrgId, dialect.BooleanStr(true))
-	builder.writeDashboardPermissionFilter(query.SignedInUser, m.PERMISSION_EDIT)
+
+	builder.sql.WriteString(`
+		SELECT COUNT(dashboard.id) AS count FROM dashboard
+		LEFT OUTER JOIN `)
+	builder.buildPermissionsTable(query.SignedInUser, m.PERMISSION_EDIT)
+	builder.Write(` as permissions ON dashboard.id = permissions.d_id
+		WHERE permissions.viewable = 1 AND dashboard.org_id = ? AND dashboard.is_folder = ?`,
+		query.SignedInUser.OrgId, dialect.BooleanStr(true))
 
 	type folderCount struct {
 		Count int64
