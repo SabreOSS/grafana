@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"github.com/grafana/grafana/pkg/services/sqlstore/permissions"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -336,10 +337,20 @@ func getDashboards(sqlStore *SqlStore, search Search, aclUserId int64) ([]*dashb
 	if search.UserFromACL {
 		signedInUser.UserId = aclUserId
 	}
+	permissionsTable := permissions.DashboardPermissionTable{
+		OrgRole:         signedInUser.OrgRole,
+		OrgId:           signedInUser.OrgId,
+		Dialect:         dialect,
+		UserId:          signedInUser.UserId,
+		PermissionLevel: search.RequiredPermission,
+	}
+	permissionsSqlTable, permissionsParams := permissionsTable.Table()
 
 	var res []*dashboardResponse
-	builder.Write("SELECT * FROM dashboard WHERE true")
-	builder.writeDashboardPermissionFilter(signedInUser, search.RequiredPermission)
+	builder.Write("SELECT * FROM dashboard LEFT OUTER JOIN ")
+	builder.Write(permissionsSqlTable, permissionsParams...)
+	builder.Write(` as permissions ON dashboard.id = permissions.d_id
+		WHERE permissions.viewable = 1`)
 	err := sqlStore.engine.SQL(builder.GetSqlString(), builder.params...).Find(&res)
 	return res, err
 }

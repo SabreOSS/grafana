@@ -3,6 +3,7 @@ package searchstore
 import (
 	"bytes"
 	"fmt"
+	"github.com/grafana/grafana/pkg/services/sqlstore/permissions"
 	"strings"
 
 	"github.com/grafana/grafana/pkg/services/sqlstore/migrator"
@@ -13,8 +14,9 @@ import (
 type Builder struct {
 	// List of FilterWhere/FilterGroupBy/FilterOrderBy/FilterLeftJoin
 	// to modify the query.
-	Filters []interface{}
-	Dialect migrator.Dialect
+	Filters          []interface{}
+	PermissionsTable permissions.DashboardPermissionTable
+	Dialect          migrator.Dialect
 
 	params []interface{}
 	sql    bytes.Buffer
@@ -37,10 +39,26 @@ func (b *Builder) ToSql(limit, page int64) (string, []interface{}) {
 	b.sql.WriteString(
 		`LEFT OUTER JOIN dashboard AS folder ON folder.id = dashboard.folder_id
 		LEFT OUTER JOIN dashboard_tag ON dashboard.id = dashboard_tag.dashboard_id`)
+
+	b.sql.WriteString(`
+		LEFT OUTER JOIN `)
+	b.applyPermissions()
+	b.sql.WriteString(` as permissions ON dashboard.id = permissions.d_id
+		WHERE (permissions.viewable + permissions.listable > 0)`)
 	b.sql.WriteString("\n")
 	b.sql.WriteString(orderQuery)
 
 	return b.sql.String(), b.params
+}
+
+func (b *Builder) applyPermissions() {
+	if (b.PermissionsTable != permissions.DashboardPermissionTable{}) {
+		sql, params := b.PermissionsTable.Table()
+		b.sql.WriteString(sql)
+		b.params = append(b.params, params...)
+	} else {
+		b.sql.WriteString(`(SELECT id AS d_id, 1 AS viewable, 1 as listable, 1 AS folder_viewable FROM dashboard)`)
+	}
 }
 
 func (b *Builder) buildSelect() {
@@ -55,7 +73,9 @@ func (b *Builder) buildSelect() {
 			dashboard.folder_id,
 			folder.uid AS folder_uid,
 			folder.slug AS folder_slug,
-			folder.title AS folder_title
+			folder.title AS folder_title,
+			permissions.viewable AS viewable,
+			permissions.folder_viewable AS folder_viewable
 		FROM `)
 }
 

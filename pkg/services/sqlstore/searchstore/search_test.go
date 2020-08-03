@@ -59,10 +59,12 @@ func TestBuilder_EqualResults_Basic(t *testing.T) {
 	res[0].Uid = ""
 	assert.EqualValues(t, []sqlstore.DashboardSearchProjection{
 		{
-			Id:    1,
-			Title: "A",
-			Slug:  "a",
-			Term:  "templated",
+			Id:             1,
+			Title:          "A",
+			Slug:           "a",
+			Term:           "templated",
+			Viewable:       true,
+			FolderViewable: true,
 		},
 	}, res)
 }
@@ -131,13 +133,13 @@ func TestBuilder_Permissions(t *testing.T) {
 		Filters: []interface{}{
 			searchstore.OrgFilter{OrgId: user.OrgId},
 			searchstore.TitleSorter{},
-			permissions.DashboardPermissionFilter{
-				Dialect:         dialect,
-				OrgRole:         user.OrgRole,
-				OrgId:           user.OrgId,
-				UserId:          user.UserId,
-				PermissionLevel: level,
-			},
+		},
+		PermissionsTable: permissions.DashboardPermissionTable{
+			Dialect:         dialect,
+			OrgRole:         user.OrgRole,
+			OrgId:           user.OrgId,
+			UserId:          user.UserId,
+			PermissionLevel: level,
 		},
 		Dialect: dialect,
 	}

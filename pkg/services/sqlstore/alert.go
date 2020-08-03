@@ -3,6 +3,7 @@ package sqlstore
 import (
 	"bytes"
 	"fmt"
+	"github.com/grafana/grafana/pkg/services/sqlstore/permissions"
 	"strings"
 	"time"
 
@@ -73,6 +74,14 @@ func deleteAlertByIdInternal(alertId int64, reason string, sess *DBSession) erro
 
 func HandleAlertsQuery(query *models.GetAlertsQuery) error {
 	builder := SqlBuilder{}
+	permissionsTable := permissions.DashboardPermissionTable{
+		OrgRole:         query.User.OrgRole,
+		OrgId:           query.User.OrgId,
+		Dialect:         dialect,
+		UserId:          query.User.UserId,
+		PermissionLevel: models.PERMISSION_VIEW,
+	}
+	permissionsSql, permissionsParams := permissionsTable.Table()
 
 	builder.Write(`SELECT
 		alert.id,
@@ -89,7 +98,11 @@ func HandleAlertsQuery(query *models.GetAlertsQuery) error {
 		FROM alert
 		INNER JOIN dashboard on dashboard.id = alert.dashboard_id `)
 
-	builder.Write(`WHERE alert.org_id = ?`, query.OrgId)
+	builder.sql.WriteString(`
+		LEFT OUTER JOIN `)
+	builder.Write(permissionsSql, permissionsParams...)
+	builder.Write(` as permissions ON alert.dashboard_id = permissions.d_id
+		WHERE permissions.viewable = 1 AND alert.org_id= ?`, query.OrgId)
 
 	if len(strings.TrimSpace(query.Query)) > 0 {
 		builder.Write(" AND alert.name "+dialect.LikeStr()+" ?", "%"+query.Query+"%")
@@ -122,10 +135,6 @@ func HandleAlertsQuery(query *models.GetAlertsQuery) error {
 			builder.AddParams(v)
 		}
 		builder.Write(")")
-	}
-
-	if query.User.OrgRole != models.ROLE_ADMIN {
-		builder.writeDashboardPermissionFilter(query.User, models.PERMISSION_VIEW)
 	}
 
 	builder.Write(" ORDER BY name ASC")

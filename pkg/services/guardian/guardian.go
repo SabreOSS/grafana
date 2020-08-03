@@ -93,7 +93,11 @@ func (g *dashboardGuardianImpl) logHasPermissionResult(permission models.Permiss
 }
 
 func (g *dashboardGuardianImpl) checkAcl(permission models.PermissionType, acl []*models.DashboardAclInfoDTO) (bool, error) {
-	orgRole := g.user.OrgRole
+	orgOkRoles := []models.RoleType{g.user.OrgRole}
+	if g.user.OrgRole == models.ROLE_EDITOR {
+		orgOkRoles = append(orgOkRoles, models.ROLE_VIEWER)
+	}
+
 	teamAclItems := []*models.DashboardAclInfoDTO{}
 
 	for _, p := range acl {
@@ -105,9 +109,11 @@ func (g *dashboardGuardianImpl) checkAcl(permission models.PermissionType, acl [
 		}
 
 		// role match
-		if p.Role != nil {
-			if *p.Role == orgRole && p.Permission >= permission {
-				return true, nil
+		for _, orgRole := range orgOkRoles {
+			if p.Role != nil {
+				if *p.Role == orgRole && p.Permission >= permission {
+					return true, nil
+				}
 			}
 		}
 
