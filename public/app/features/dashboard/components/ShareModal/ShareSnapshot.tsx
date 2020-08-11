@@ -12,10 +12,10 @@ const { Select, Input } = LegacyForms;
 const snapshotApiUrl = '/api/snapshots';
 
 const expireOptions: Array<SelectableValue<number>> = [
-  { label: 'Never', value: 0 },
-  { label: '1 Hour', value: 60 * 60 },
-  { label: '1 Day', value: 60 * 60 * 24 },
-  { label: '7 Days', value: 60 * 60 * 24 * 7 },
+  { label: '1 Month', value: 60 * 60 * 24 * 31 * 1 },
+  { label: '3 Months', value: 60 * 60 * 24 * 31 * 3 },
+  { label: '6 Months', value: 60 * 60 * 24 * 31 * 6 },
+  { label: '1 Year', value: 60 * 60 * 24 * 366 },
 ];
 
 interface Props {
@@ -49,7 +49,7 @@ export class ShareSnapshot extends PureComponent<Props, State> {
       selectedExpireOption: expireOptions[0],
       snapshotExpires: expireOptions[0].value,
       snapshotName: props.dashboard.title,
-      timeoutSeconds: 4,
+      timeoutSeconds: 30,
       snapshotUrl: '',
       deleteUrl: '',
       externalEnabled: false,

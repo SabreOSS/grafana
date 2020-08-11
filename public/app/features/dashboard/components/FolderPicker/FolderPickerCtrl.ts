@@ -29,10 +29,12 @@ export class FolderPickerCtrl {
   validationError: any;
   isEditor: boolean;
   dashboardId?: number;
+  isSandbox: boolean;
 
   /** @ngInject */
   constructor(private validationSrv: ValidationSrv, private contextSrv: ContextSrv, private $scope: IScope) {
     this.isEditor = this.contextSrv.isEditor;
+    this.isSandbox = contextSrv.user.orgName === 'sandbox';
 
     if (!this.labelClass) {
       this.labelClass = 'width-7';
@@ -59,7 +61,7 @@ export class FolderPickerCtrl {
             query.toLowerCase() === 'gene' ||
             query.toLowerCase() === 'gener' ||
             query.toLowerCase() === 'genera' ||
-            query.toLowerCase() === 'general')
+            query.toLowerCase() === 'general') && !this.isSandbox
         ) {
           result.unshift({ title: this.rootName, id: 0 });
         }
@@ -154,7 +156,7 @@ export class FolderPickerCtrl {
       }
 
       if (!folder) {
-        if (this.isEditor) {
+        if (this.isEditor && !this.isSandbox) {
           folder = rootFolder;
         } else {
           // We shouldn't assign a random folder without the user actively choosing it on a persisted dashboard
@@ -162,7 +164,7 @@ export class FolderPickerCtrl {
           if (isPersistedDashBoard) {
             folder = resetFolder;
           } else {
-            folder = result.length > 0 ? result[0] : resetFolder;
+            folder = result.length > 0 ? (this.isSandbox ? result[1] : result[0]) : resetFolder;
           }
         }
       }
