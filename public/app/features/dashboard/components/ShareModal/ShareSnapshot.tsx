@@ -15,7 +15,7 @@ const expireOptions: Array<SelectableValue<number>> = [
   { label: '1 Month', value: 60 * 60 * 24 * 31 * 1 },
   { label: '3 Months', value: 60 * 60 * 24 * 31 * 3 },
   { label: '6 Months', value: 60 * 60 * 24 * 31 * 6 },
-  { label: '1 Year', value: 60 * 60 * 24 * 366 },
+  { label: '12 Months', value: 60 * 60 * 24 * 366 },
 ];
 
 interface Props {

@@ -201,7 +201,10 @@ export class DashboardGrid extends PureComponent<Props> {
   };
 
   isInView = (panel: PanelModel): boolean => {
-    if (panel.isViewing || panel.isEditing) {
+    const urlParams = new URLSearchParams(window.location.href);
+    const disableLazyLoading = urlParams.has('disableLazyLoading') && urlParams.get('disableLazyLoading') === 'true';
+
+    if (panel.isViewing || panel.isEditing || disableLazyLoading) {
       return true;
     }
 
